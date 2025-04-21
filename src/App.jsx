@@ -16,6 +16,7 @@ function App() {
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <Router>
         <Routes>
+          
           {/* Public routes */}
           <Route path="/" element={<PublicRoute><SignUp /></PublicRoute>} />
           <Route path="/sign-in" element={<PublicRoute><SignIn /></PublicRoute>} />
@@ -23,6 +24,10 @@ function App() {
 
           {/* Private route */}
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+
+          {/* 404 Page Not Found */}
+          <Route path="*" element={<div>Page Not Found</div>} />
+
         </Routes>
       </Router>
     </GoogleOAuthProvider>

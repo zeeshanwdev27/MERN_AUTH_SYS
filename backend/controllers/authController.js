@@ -3,32 +3,45 @@ dotenv.config();
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-
-import oauth2client from "../utils/googleConfig.js"
-import axios from 'axios'
-
+import oauth2client from '../utils/googleConfig.js';
+import axios from 'axios';
+import { createTokens } from '../helpers/token.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// ========== SIGN UP ==========
 export const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res.status(400).json({ message: 'Email already in use' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, email, password: hashedPassword });
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      isGoogleUser: false,
+    });
     await newUser.save();
 
-    const token = jwt.sign({ id: newUser._id, name: newUser.name }, JWT_SECRET, { expiresIn: '1d' });
+    const { accessToken, refreshToken } = createTokens({
+      id: newUser._id,
+      name: newUser.name,
+      email: newUser.email,
+    });
 
     res.status(201).json({
       message: 'User created successfully',
-      token,
+      accessToken,
+      refreshToken,
       user: {
+        id: newUser._id,
         name: newUser.name,
         email: newUser.email,
+        image: newUser.image || null,
       },
     });
   } catch (err) {
@@ -37,23 +50,35 @@ export const signup = async (req, res) => {
   }
 };
 
+// ========== SIGN IN ==========
 export const signin = async (req, res) => {
   try {
     const { email, password } = req.body;
+
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user || user.isGoogleUser) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isMatch)
+      return res.status(401).json({ message: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user._id, name: user.name }, JWT_SECRET, { expiresIn: '1h' });
+    const { accessToken, refreshToken } = createTokens({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    });
 
     res.status(200).json({
-      success: true,
-      token,
+      message: 'Login successful',
+      accessToken,
+      refreshToken,
       user: {
+        id: user._id,
         name: user.name,
         email: user.email,
+        image: user.image || null,
       },
     });
   } catch (err) {
@@ -62,7 +87,7 @@ export const signin = async (req, res) => {
   }
 };
 
-
+// ========== GOOGLE LOGIN ==========
 export const googleLogin = async (req, res) => {
   try {
     const { code } = req.query;
@@ -83,32 +108,60 @@ export const googleLogin = async (req, res) => {
         name,
         email,
         image: picture,
+        isGoogleUser: true,
       });
     }
 
-    // ✅ Use fields directly here without re-declaring
-    const token = jwt.sign(
-      {
-        _id: user._id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_TIMEOUT,
-      }
-    );
+    const { accessToken, refreshToken } = createTokens({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+    });
 
-    return res.status(200).json({
-      message: 'Success',
-      token,
-      user,
+    res.status(200).json({
+      message: 'Google login successful',
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        isGoogleUser: user.isGoogleUser,
+      },
     });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      message: 'Internal Server Error',
+    console.error('Google login error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// ========== REFRESH TOKEN ==========
+export const refreshToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(401).json({ message: 'Refresh token is required' });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { accessToken, refreshToken } = createTokens({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
     });
+
+    res.status(200).json({ accessToken, refreshToken });
+  } catch (err) {
+    console.error('Refresh token error:', err);
+    res.status(403).json({ message: 'Invalid or expired refresh token' });
   }
 };

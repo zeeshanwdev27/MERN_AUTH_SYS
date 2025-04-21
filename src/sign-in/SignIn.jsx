@@ -69,6 +69,7 @@ const SignInContainer = styled(Stack)(({ theme }) => ({
 }));
 
 export default function SignIn(props) {
+  
   const [emailError, setEmailError] = React.useState(false);
   const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
@@ -129,11 +130,16 @@ export default function SignIn(props) {
       });
   
       const result = await response.json();
+
+      console.log(result)
   
-      if (response.ok && result.token) {
-        localStorage.setItem('token', result.token); // ✅ Save JWT token
+      if (response.ok && result.accessToken && result.refreshToken) {
+        // ✅ Store tokens like in signup
+        localStorage.setItem('token', result.accessToken);
+        localStorage.setItem('refreshToken', result.refreshToken);
+  
         toast.success(`Welcome back, ${result.user.name}! 🚀`);
-        window.location.href = '/dashboard'; // ✅ Navigate to dashboard
+        window.location.href = '/dashboard'; 
       } else {
         toast.error(result.message || 'Invalid credentials ❌');
       }

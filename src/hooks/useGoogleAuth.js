@@ -10,18 +10,21 @@ const useGoogleAuth = () => {
       if (authResult['code']) {
         const result = await googleAuth(authResult['code']);
         const { email, name, image } = result.data.user;
-        const token = result.data.token;
+        const token = result.data.accessToken; 
+        const refreshToken = result.data.refreshToken;
 
-        const obj = { email, name, image, token };
-        localStorage.setItem('token', token); 
-        localStorage.setItem('user-info', JSON.stringify(obj));
+        // ✅ Save token consistently
+        localStorage.setItem('token', token);
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('user-info', JSON.stringify({ email, name, image }));
 
-        console.log('result.data.user---', result.data.user);
-        console.log(token);
+        console.log('✅ Google login user:', result.data.user);
+        console.log('✅ Token saved:', token);
+
         navigate('/dashboard');
       }
     } catch (err) {
-      console.error('Error While Requesting Google Code', err);
+      console.error('❌ Error while requesting Google code:', err);
     }
   };
 

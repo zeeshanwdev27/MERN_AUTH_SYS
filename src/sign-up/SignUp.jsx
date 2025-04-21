@@ -67,6 +67,7 @@ const SignUpContainer = styled(Stack)(({ theme }) => ({
 }));
 
 export default function SignUp(props) {
+  
   const [emailError, setEmailError] = React.useState(false);
   const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
@@ -122,19 +123,6 @@ export default function SignUp(props) {
     return isValid;
   };
 
-  // const handleSubmit = (event) => {
-  //   if (nameError || emailError || passwordError) {
-  //     event.preventDefault();
-  //     return;
-  //   }
-  //   const data = new FormData(event.currentTarget);
-  //   console.log({
-  //     name: data.get('name'),
-  //     lastName: data.get('lastName'),
-  //     email: data.get('email'),
-  //     password: data.get('password'),
-  //   });
-  // };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -155,19 +143,22 @@ export default function SignUp(props) {
         body: JSON.stringify(payload),
       });
   
-      const result = await response.json(); // 👈 Important to move this up
+      const result = await response.json();
   
-      if (!response.ok || !result.token) {
+      if (!response.ok) {
         throw new Error(result.message || 'Signup failed');
       }
   
-      localStorage.setItem('token', result.token);
+      // ✅ Save both tokens
+      localStorage.setItem('token', result.accessToken);
+      localStorage.setItem('refreshToken', result.refreshToken);
+  
       notify('success', `Welcome, ${result.user.name}! 🎉`);
   
-      // ✅ Go to dashboard
+      // Navigate to dashboard or wherever you want
       navigate('/dashboard');
   
-      // (Optional: Reset form if needed after navigate)
+      // Optional: Clear the form
       event.target.reset();
       setEmailError(false);
       setPasswordError(false);
@@ -175,12 +166,10 @@ export default function SignUp(props) {
   
     } catch (error) {
       console.error('Error during signup:', error.message);
-      notify('error', 'Signup failed. Please try again.');
+      notify('error', error.message || 'Signup failed. Please try again.');
     }
   };
   
-
-
 
   return (
     <AppTheme {...props}>
